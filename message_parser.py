@@ -45,6 +45,13 @@ class SaleMessageParser:
             r'сегодня',
             r'вчера',
         ]
+        
+        # Названия месяцев на русском
+        self.month_names = {
+            'января': 1, 'февраля': 2, 'марта': 3, 'апреля': 4,
+            'мая': 5, 'июня': 6, 'июля': 7, 'августа': 8,
+            'сентября': 9, 'октября': 10, 'ноября': 11, 'декабря': 12
+        }
     
     def parse_message(self, message_text: str) -> Dict[str, Optional[str]]:
         """
@@ -106,6 +113,20 @@ class SaleMessageParser:
             yesterday = datetime.now(pytz.timezone('Europe/Moscow')).replace(hour=0, minute=0, second=0, microsecond=0)
             yesterday = yesterday.replace(day=yesterday.day - 1)
             return yesterday.strftime('%d.%m.%Y')
+        
+        # Ищем даты с названиями месяцев (например, "12 декабря")
+        for month_name, month_num in self.month_names.items():
+            pattern = rf'(\d{{1,2}})\s+{month_name}'
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                day = match.group(1)
+                current_year = datetime.now().year
+                try:
+                    # Проверяем валидность даты
+                    datetime.strptime(f"{day}.{month_num}.{current_year}", '%d.%m.%Y')
+                    return f"{day.zfill(2)}.{month_num:02d}.{current_year}"
+                except ValueError:
+                    continue
         
         # Ищем даты в формате ДД.ММ.ГГГГ
         for pattern in self.date_patterns:
@@ -343,12 +364,22 @@ class SaleMessageParser:
         
         result['buyer'] = buyer
         
-        # Ищем дату (формат ДД.ММ или ДД.ММ.ГГГГ)
+        # Ищем дату (формат ДД.ММ, ДД.ММ.ГГГГ или "12 декабря")
         date = None
-        for word in words:
+        for i, word in enumerate(words):
+            # Проверяем формат ДД.ММ или ДД.ММ.ГГГГ
             if re.match(r'\d{1,2}\.\d{1,2}(?:\.\d{2,4})?$', word):
                 date = word
                 break
+            # Проверяем формат "12 декабря"
+            elif re.match(r'\d{1,2}$', word) and i + 1 < len(words):
+                next_word = words[i + 1].lower()
+                if next_word in self.month_names:
+                    day = word
+                    month_num = self.month_names[next_word]
+                    current_year = datetime.now().year
+                    date = f"{day}.{month_num:02d}.{current_year}"
+                    break
         
         # Ищем время (формат ЧЧММ или ЧЧ:ММ)
         time = None
