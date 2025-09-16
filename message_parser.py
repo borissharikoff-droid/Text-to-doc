@@ -233,15 +233,41 @@ class SaleMessageParser:
             if match:
                 return match.group(1).strip()
         
-        # Если кавычек нет, ищем в конце сообщения
-        # Предполагаем, что источник - это последнее слово/фраза после суммы
+        # Если кавычек нет, пытаемся найти источник как текст ПОСЛЕ суммы
         words = text.split()
-        if len(words) >= 2:
-            # Берем последние 1-3 слова как потенциальный источник
-            potential_source = ' '.join(words[-3:])
-            # Исключаем числа и валюты
-            if not re.search(r'\d|usdt|₽|руб|btc|eth', potential_source.lower()):
-                return potential_source.strip()
+        # Находим слово с суммой (число+валюта в одном слове: 1488usdt, 5000р и т.п.)
+        amount_word_index = -1
+        for i, w in enumerate(words):
+            lw = w.lower()
+            if re.search(r'\d', lw) and any(cur in lw for cur in ['usdt', 'usd', '₽', 'руб', 'btc', 'eth', 'юсдт', 'долл', 'р']):
+                amount_word_index = i
+                break
+        source_tokens = []
+        if amount_word_index != -1:
+            for w in words[amount_word_index + 1:]:
+                lw = w.lower()
+                # Отфильтровываем дату/время/валюту/числа/@username
+                if (
+                    re.fullmatch(r'\d{1,2}\.\d{1,2}(?:\.\d{2,4})?', w) or
+                    re.fullmatch(r'\d{3,4}', w) or
+                    re.fullmatch(r'\d{1,2}:\d{2}', w) or
+                    w.startswith('@') or
+                    re.search(r'\d', lw) or
+                    any(cur in lw for cur in ['usdt', 'usd', '₽', 'руб', 'btc', 'eth', 'юсдт', 'долл', 'р'])
+                ):
+                    continue
+                # Разрешаем слова с точками/символами (например, Анал.Жесткий)
+                if re.search(r'[A-Za-zА-Яа-я]', w):
+                    source_tokens.append(w)
+            if source_tokens:
+                return ' '.join(source_tokens).strip()
+
+        # Фоллбэк: берем последнее слово, если оно похоже на текст источника
+        if words:
+            last = words[-1]
+            ll = last.lower()
+            if re.search(r'[A-Za-zА-Яа-я]', last) and not re.search(r'\d', ll) and not any(cur in ll for cur in ['usdt','usd','₽','руб','btc','eth','юсдт','долл','р']):
+                return last.strip()
         
         return None
     
@@ -270,9 +296,11 @@ class SaleMessageParser:
         if any(char in text for char in ['"', "'", '«', '»', ',', ';']):
             return False
         
-        # Если есть ключевые слова структурированного формата
-        structured_words = ['на', 'в', 'за', 'через', 'сегодня', 'вчера', 'продал', 'клиент', 'покупатель']
-        if any(word in text.lower() for word in structured_words):
+        # Если есть ключевые слова структурированного формата (проверяем как отдельные слова)
+        # Исключаем короткие предлоги 'на' и 'в', чтобы не ловить их в датах/временах
+        structured_words = ['за', 'через', 'сегодня', 'вчера', 'продал', 'клиент', 'покупатель']
+        lowered = text.lower()
+        if any(re.search(rf"\b{re.escape(word)}\b", lowered) for word in structured_words):
             return False
         
         # Если есть @username и числа - вероятно неформатированный текст
