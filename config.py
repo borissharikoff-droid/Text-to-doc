@@ -25,18 +25,23 @@ def get_google_credentials():
     """Return Google Service Account credentials from env or local credentials.json.
     Returns a dict or None.
     """
+    # Сначала проверяем переменную окружения (для Railway)
     google_credentials = os.getenv("GOOGLE_CREDENTIALS")
     if google_credentials:
         try:
             return json.loads(google_credentials)
         except json.JSONDecodeError:
+            print("Ошибка парсинга GOOGLE_CREDENTIALS")
             pass
+    
+    # Только для локальной разработки
     if os.path.exists("credentials.json"):
         try:
             with open("credentials.json", "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             pass
+    
     return None
 
 # Check if Google Sheets should be enabled
