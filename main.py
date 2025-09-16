@@ -307,9 +307,6 @@ if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "test":
         test_parser_locally()
-    elif len(sys.argv) > 1 and sys.argv[1] == "debug":
-        from debug_env import debug_environment
-        debug_environment()
     else:
         # Запускаем веб-сервер для Railway
         create_web_server()
