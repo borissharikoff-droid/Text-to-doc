@@ -7,7 +7,7 @@ import os
 from google.oauth2.service_account import Credentials
 import logging
 from typing import List, Optional
-from config import GOOGLE_SHEETS_ID, SHEET_NAME
+from config import GOOGLE_SHEETS_ID, SHEET_NAME, get_google_credentials
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -31,27 +31,10 @@ class GoogleSheetsManager:
                 'https://www.googleapis.com/auth/drive'
             ]
             
-            # Создаем учетные данные
-            creds = None
-            
-            # Сначала пытаемся использовать переменную окружения (для Railway)
-            google_credentials = os.getenv('GOOGLE_CREDENTIALS')
-            if google_credentials:
-                try:
-                    credentials_info = json.loads(google_credentials)
-                    creds = Credentials.from_service_account_info(credentials_info, scopes=scope)
-                    logger.info("Используются учетные данные из переменной окружения")
-                except Exception as e:
-                    logger.error(f"Ошибка парсинга GOOGLE_CREDENTIALS: {e}")
-            
-            # Если не получилось, пытаемся использовать файл (для локальной разработки)
-            if not creds:
-                try:
-                    creds = Credentials.from_service_account_file('credentials.json', scopes=scope)
-                    logger.info("Используется файл credentials.json")
-                except FileNotFoundError:
-                    logger.warning("Файл credentials.json не найден и GOOGLE_CREDENTIALS не установлена. Google Sheets интеграция отключена.")
-                    return
+            # Получаем учетные данные из config.py
+            credentials_info = get_google_credentials()
+            creds = Credentials.from_service_account_info(credentials_info, scopes=scope)
+            logger.info("Используются учетные данные из config.py")
             
             # Подключаемся к Google Sheets
             gc = gspread.authorize(creds)
@@ -62,6 +45,7 @@ class GoogleSheetsManager:
             
         except Exception as e:
             logger.error(f"Ошибка подключения к Google Sheets: {e}")
+            logger.info("Google Sheets отключен, данные будут сохраняться только в CSV")
             self.worksheet = None
     
     def add_record(self, buyer: str, datetime: str, amount: str, source: str) -> bool:
