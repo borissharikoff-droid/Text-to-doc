@@ -38,3 +38,8 @@ def get_google_credentials():
         except Exception:
             pass
     return None
+
+# Check if Google Sheets should be enabled
+def is_google_sheets_enabled():
+    """Check if Google Sheets integration should be enabled"""
+    return get_google_credentials() is not None

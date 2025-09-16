@@ -7,7 +7,7 @@ import os
 from google.oauth2.service_account import Credentials
 import logging
 from typing import List, Optional
-from config import GOOGLE_SHEETS_ID, SHEET_NAME, get_google_credentials
+from config import GOOGLE_SHEETS_ID, SHEET_NAME, get_google_credentials, is_google_sheets_enabled
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -24,6 +24,11 @@ class GoogleSheetsManager:
     
     def _setup_connection(self):
         """Настройка подключения к Google Sheets"""
+        if not is_google_sheets_enabled():
+            logger.info("Google Sheets отключен - нет credentials")
+            self.worksheet = None
+            return
+            
         try:
             # Определяем область доступа
             scope = [
@@ -33,6 +38,11 @@ class GoogleSheetsManager:
             
             # Получаем учетные данные из config.py
             credentials_info = get_google_credentials()
+            if not credentials_info:
+                logger.warning("Google credentials не найдены")
+                self.worksheet = None
+                return
+                
             creds = Credentials.from_service_account_info(credentials_info, scopes=scope)
             logger.info("Используются учетные данные из config.py")
             
